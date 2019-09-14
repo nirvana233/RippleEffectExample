@@ -1,4 +1,4 @@
-﻿Shader "Hidden/Ripple Effect"
+Shader "Hidden/Ripple Effect"
 {
     Properties
     {
@@ -26,16 +26,18 @@
     float3 _Drop3;//涟漪3
 	float _SeaLevel;
 
+	//position,乘以宽高比率后的uv（当前片元对应的UV）； origin，乘以宽高比后的初始点（0.5，0.5）* （aspect，1）；time，过去了的时间
+	//水波速度快指的是采样曲线变化快，同样的曲线，采样快的先变化完，感觉就是波纹速度快了
     float wave(float2 position, float2 origin, float time) //当前点位置, 出发点位置, 时间
     {
-        float d = length(position - origin);
-        float t = time - d * _Params1.z;
+        float d = length(position - origin); //计算当前点到出发点的距离
+        float t = time - d * _Params1.z; //计算已扩散时间	 _Params1.z：1/speed	 时间刚开始的时候，越近的越先出现波纹
 		if (_SeaLevel > 0 && position.y > _SeaLevel)// 超过海平面则不再扩散
 		{
 			return 0;
 		}
-		return (tex2D(_GradTex, float2(t, 0)).a - 0.5f) * 2;
-    }
+		return (tex2D(_GradTex, float2(t, 0)).a - 0.5f) * 2; //在波形曲线上得到振幅(-1,1)	 
+    }			   
     float allwave(float2 position)// 计算当前点在三个涟漪下的共同作用效果（因为涟漪之间可能相交）
     {
 		return
@@ -46,12 +48,12 @@
 	//伪代码 [RippleEffect.shader]  
     half4 frag(v2f_img i) : SV_Target
     {
-        const float2 dx = float2(0.01f, 0);//delta x
+        const float2 dx = float2(0.01f, 0);//delta x	 波纹宽度大小，强度！！！！！！！！！！！！！！
         const float2 dy = float2(0, 0.01f);// delta y
-        float2 p = i.uv * _Params1.xy;//根据比例变换uv
+        float2 p = i.uv * _Params1.xy;//根据比例变换uv   //根据相机比例变换当前点的UV坐标 _Params1	==  c.aspect, 1, 1 / waveSpeed, 0
         float w = allwave(p);//振幅，用振幅来对当前点做UV上面的偏移，即可产生涟漪效果
         float2 dw = float2(allwave(p + dx) - w, allwave(p + dy) - w);//xy上振幅
-        float2 duv = dw * _Params2.xy * 0.2f * _Params2.z; //ux上振幅
+        float2 duv = dw * _Params2.xy * 0.2f * _Params2.z; //uv上振幅	  --_Params2.xy == 1, 1 / c.aspect ，refractionStrength，reflectionStrength
         half4 c = tex2D(_MainTex, i.uv + duv);//在原图上做偏移
         float fr = pow(length(dw) * 3 * _Params2.w, 3);
         return lerp(c, _Reflection, fr);//lerp来实现反射效果,优化表现
